@@ -1,7 +1,9 @@
 __pycache__/
 *.py[cod]
-*$py.class
 .env
+.venv/
 .pytest_cache/
-*.sqlite3
-*.db
+.ipynb_checkpoints/
+
+# Datasets (download them from the links in the README)
+*.csv
