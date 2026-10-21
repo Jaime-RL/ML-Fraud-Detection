@@ -1,3 +1,4 @@
+"""Predicción del precio de la vivienda (California Housing): regresión lineal vs. Random Forest."""
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -51,7 +52,7 @@ def add_features(data):
     - 'households'
 
     Parameters:
-    data (pandas.DataFrame): The input DataFrame containing housing data with columns 
+    data (pandas.DataFrame): The input DataFrame containing housing data with columns
                              'total_rooms', 'total_bedrooms', and 'households'.
 
     Returns:
@@ -82,23 +83,11 @@ print(y_train.head())
 # 3. Escalar los Datos
 # --------------------
 
-# Escalar los datos
-def scale_data(data):
-    """
-    Scales the input data using StandardScaler.
-
-    Parameters:
-    data (array-like): The data to be scaled.
-
-    Returns:
-    array-like: The scaled data.
-    """
-    scaler = StandardScaler()
-    return scaler.fit_transform(data)
-
-# Escalar los datos de entrenamiento y prueba
-X_train = scale_data(X_train)
-X_test = scale_data(X_test)
+# El escalador se ajusta SOLO con entrenamiento y se reutiliza en prueba
+# (ajustarlo también con prueba filtraría información del conjunto de test)
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
 
 # 4. Crear y Entrenar el Modelo
 # -----------------------------
@@ -107,7 +96,7 @@ X_test = scale_data(X_test)
 linear_regression_model = LinearRegression()
 linear_regression_model.fit(X_train, y_train)
 
-random_forest_model = RandomForestRegressor()
+random_forest_model = RandomForestRegressor(random_state=42)
 random_forest_model.fit(X_train, y_train)
 
 # 5. Predecir y Evaluar el Modelo
@@ -121,6 +110,5 @@ y_pred_rf = random_forest_model.predict(X_test)
 r2_rf = r2_score(y_test, y_pred_rf)
 
 # Imprimir el puntaje R^2
-print(f"R^2 Score (Linear Regresion): {r2}")
-print(f"R^2 Score (Random Forest): {r2_rf}")
-
+print(f"R^2 Score (Linear Regression): {r2:.4f}")
+print(f"R^2 Score (Random Forest): {r2_rf:.4f}")
