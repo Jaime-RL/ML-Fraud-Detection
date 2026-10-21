@@ -1,3 +1,4 @@
+"""Regresión logística (aprobado/suspenso según horas de estudio) implementada desde cero."""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,14 +7,10 @@ import matplotlib.pyplot as plt
 # ---------------------------------
 
 # Cargar los datos desde un archivo CSV
-datos = pd.read_csv('score copy.csv')
+datos = pd.read_csv('score.csv')
 
-# Aquellos cuyo score > 50, se les asigna 1, de lo contrario 0
-for index, row in datos.iterrows():
-    if row['Scores'] > 50:
-        datos.at[index, 'Scores'] = 1
-    else:
-        datos.at[index, 'Scores'] = 0
+# Aquellos cuyo score > 50 se etiquetan como 1 (aprobado), el resto como 0
+datos['Scores'] = (datos['Scores'] > 50).astype(int)
 
 # Separar las características (x) y las etiquetas (y)
 x = datos.Hours
@@ -31,14 +28,18 @@ def funcion_coste_logistico(m, b, points):
     Args:
         m (float): Pendiente de la recta de regresión logística.
         b (float): Intersección de la recta de regresión logística.
-        points (list of tuples): Lista de puntos (x, y) donde x es la característica y y es la etiqueta.
+        points (DataFrame): Conjunto de datos con las columnas Hours (característica) y Scores (etiqueta 0/1).
 
     Returns:
         float: El coste logístico promedio para el conjunto de puntos dado.
     """
     error_total = 0
+    eps = 1e-12  # evita log(0)
     for i in range(len(points)):
-        error_total += - y * np.log(sigmoid(m*x + b)) - (1 - y) * np.log(1 - sigmoid(m*x + b))
+        x_i = points.iloc[i].Hours
+        y_i = points.iloc[i].Scores
+        p = sigmoid(m * x_i + b)
+        error_total += -y_i * np.log(p + eps) - (1 - y_i) * np.log(1 - p + eps)
     return error_total / float(len(points))
 
 # Función de descenso de gradiente para la regresión logística
@@ -57,17 +58,17 @@ def descenso_gradiente_logistico(m_actual, b_actual, points, learning_rate):
     b_gradiente = 0
 
     n = len(points)
-    
+
     for i in range(n):
         x = points.iloc[i].Hours
         y = points.iloc[i].Scores
-        
+
         m_gradiente += -(2/n) * x * (y - sigmoid(m_actual*x + b_actual))
         b_gradiente += -(2/n) * (y - sigmoid(m_actual*x + b_actual))
-        
+
     m_nuevo = m_actual - learning_rate * m_gradiente
     b_nuevo = b_actual - learning_rate * b_gradiente
-    
+
     return m_nuevo, b_nuevo
 
 # 2. Definir los Hiperparámetros
@@ -95,7 +96,7 @@ for i in range(iteraciones):
         plt.legend()
         plt.pause(0.1)
         plt.clf()
-            
+
 # 4. Evaluar el Modelo
 # -----------------
 
@@ -106,5 +107,3 @@ predicciones = [1 if p >= 0.5 else 0 for p in predicciones]
 # Calcular y mostrar la precisión del modelo
 from sklearn.metrics import accuracy_score
 print(f'Precisión: {accuracy_score(y, predicciones)}')
-
-
