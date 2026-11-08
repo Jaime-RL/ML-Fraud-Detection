@@ -1,5 +1,7 @@
 # ML Fraud Detection & Classic ML Models
 
+[![tests](https://github.com/Jaime-RL/ML-Fraud-Detection/actions/workflows/tests.yml/badge.svg)](https://github.com/Jaime-RL/ML-Fraud-Detection/actions/workflows/tests.yml)
+
 Machine learning projects in Python, centred on **credit card fraud detection** with a highly imbalanced dataset, plus several classic models implemented **from scratch** (gradient descent, logistic regression) and with **scikit-learn**.
 
 ## Highlights
@@ -38,6 +40,11 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 
 python fraud_detection/fraud_detector.py --data path/to/creditcard.csv
+
+# optional: save the precision-recall curves and confusion matrix as PNG
+python fraud_detection/fraud_detector.py --data path/to/creditcard.csv --plots docs
+
+python -m pytest -v   # unit tests for the from-scratch SMOTE
 ```
 
 Tested with Python 3.12, scikit-learn 1.x and imbalanced-learn 0.12+.
