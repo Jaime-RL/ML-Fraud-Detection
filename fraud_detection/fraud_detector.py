@@ -12,12 +12,18 @@ Pipeline:
        (precision, recall, F1 y área bajo la curva precision-recall).
 """
 import argparse
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    precision_recall_curve,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
@@ -76,9 +82,48 @@ def evaluar(nombre, modelo, X_test, y_test):
     print("Matriz de confusión [[TN FP] [FN TP]]:\n", confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred, digits=3, target_names=["Legítima", "Fraude"]))
     print(f"Average precision (PR-AUC): {average_precision_score(y_test, y_score):.4f}")
+    return y_pred, y_score
 
 
-def main(ruta_csv):
+def guardar_graficas(resultados, y_test, carpeta):
+    """Guarda las curvas precision-recall y la matriz de confusión del mejor modelo.
+
+    `resultados` es un dict {nombre_modelo: (y_pred, y_score)}.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")  # sin ventana: solo se escriben ficheros
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import ConfusionMatrixDisplay
+
+    carpeta = Path(carpeta)
+    carpeta.mkdir(parents=True, exist_ok=True)
+
+    # Curvas precision-recall: la métrica clave cuando solo el 0,17 % es fraude
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    for nombre, (_, y_score) in resultados.items():
+        precision, recall, _ = precision_recall_curve(y_test, y_score)
+        ap = average_precision_score(y_test, y_score)
+        ax.plot(recall, precision, label=f"{nombre} (AP = {ap:.3f})")
+    ax.axhline(y_test.mean(), ls="--", c="grey", label=f"Chance (AP = {y_test.mean():.4f})")
+    ax.set(xlabel="Recall", ylabel="Precision", title="Precision-recall curves (test set)")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(carpeta / "pr_curves.png", dpi=150)
+
+    # Matriz de confusión del modelo con mayor PR-AUC
+    mejor = max(resultados, key=lambda n: average_precision_score(y_test, resultados[n][1]))
+    fig, ax = plt.subplots(figsize=(4.5, 4))
+    ConfusionMatrixDisplay.from_predictions(
+        y_test, resultados[mejor][0], display_labels=["Legit", "Fraud"], cmap="Blues", ax=ax
+    )
+    ax.set_title(mejor, fontsize=10)
+    fig.tight_layout()
+    fig.savefig(carpeta / "confusion_matrix.png", dpi=150)
+    print(f"Gráficas guardadas en {carpeta}/")
+
+
+def main(ruta_csv, carpeta_graficas=None):
     datos = pd.read_csv(ruta_csv)
     X = datos.drop(columns=["Class"]).values
     y = datos["Class"].values
@@ -105,9 +150,10 @@ def main(ruta_csv):
             n_estimators=100, n_jobs=-1, random_state=RANDOM_STATE
         ),
     }
+    resultados = {}
     for nombre, modelo in modelos.items():
         modelo.fit(X_bal, y_bal)
-        evaluar(nombre, modelo, X_test, y_test)
+        resultados[nombre] = evaluar(nombre, modelo, X_test, y_test)
 
     # Comparación: nuestra implementación de SMOTE frente a la de imbalanced-learn
     try:
@@ -115,12 +161,19 @@ def main(ruta_csv):
 
         X_ref, y_ref = SMOTE(random_state=RANDOM_STATE).fit_resample(X_train, y_train)
         ref = LogisticRegression(max_iter=1000, random_state=RANDOM_STATE).fit(X_ref, y_ref)
-        evaluar("Regresión logística + SMOTE (imblearn, referencia)", ref, X_test, y_test)
+        resultados["Regresión logística + SMOTE (imblearn)"] = evaluar(
+            "Regresión logística + SMOTE (imblearn, referencia)", ref, X_test, y_test
+        )
     except ImportError:
         print("imbalanced-learn no instalado: se omite la comparación con SMOTE de referencia.")
+
+    if carpeta_graficas:
+        guardar_graficas(resultados, y_test, carpeta_graficas)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--data", default="creditcard.csv", help="Ruta a creditcard.csv")
-    main(parser.parse_args().data)
+    parser.add_argument("--plots", metavar="CARPETA", help="Guarda curvas PR y matriz de confusión")
+    args = parser.parse_args()
+    main(args.data, args.plots)
